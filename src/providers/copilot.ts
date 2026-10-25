@@ -35,6 +35,7 @@ import {
   resolveGhCliCredential,
 } from "./gh-cli-credential.js";
 
+import { copilotGithubHost } from "./copilot-host.js";
 import {
   COPILOT_CLI_KEYCHAIN_PROMPT_REQUIRED,
   COPILOT_CLI_SECURE_STORE_UNSUPPORTED,
@@ -43,8 +44,14 @@ import {
   resolveCopilotCliCredential,
 } from "./copilot-cli-credential.js";
 
-const USER_URL = "https://api.github.com/copilot_internal/user";
-const USER_HOST = new URL(USER_URL).hostname;
+function userHost(): string {
+  const host = copilotGithubHost();
+  return host === "github.com" ? "api.github.com" : `api.${host}`;
+}
+
+function userUrl(): string {
+  return `https://${userHost()}/copilot_internal/user`;
+}
 const API_TIMEOUT_MS = 15_000;
 
 type CopilotCredentials = {
@@ -462,7 +469,7 @@ async function fetchCopilotUser(credentials: CopilotCredentials): Promise<{
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
-    const response = await providerFetch(USER_URL, {
+    const response = await providerFetch(userUrl(), {
       redirect: "error",
       headers: {
         authorization: `Bearer ${credentials.oauthToken}`,
@@ -605,9 +612,11 @@ function normalizeHost(value: string | undefined): string | undefined {
 }
 
 function matchesUserEndpoint(host: string): boolean {
+  const apiHost = userHost();
   return (
-    host === USER_HOST ||
-    (USER_HOST === "api.github.com" && host === "github.com")
+    host === apiHost ||
+    (apiHost === "api.github.com" && host === "github.com") ||
+    (apiHost !== "api.github.com" && `api.${host}` === apiHost)
   );
 }
 

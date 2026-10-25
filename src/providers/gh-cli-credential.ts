@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { readBoundedFile } from "../lib/fs.js";
+import { copilotGithubHost } from "./copilot-host.js";
 import { usableLiteralSecret } from "../lib/secret.js";
 
 /**
@@ -27,7 +28,6 @@ import { usableLiteralSecret } from "../lib/secret.js";
 export const GH_CLI_CREDENTIAL_SOURCE = "gh:hosts.yml";
 
 /** The only host whose token may reach the public Copilot user endpoint. */
-const PUBLIC_GITHUB_HOST = "github.com";
 const TOKEN_KEY = "oauth_token";
 const HOSTS_FILE_LIMIT_BYTES = 64 * 1024;
 
@@ -102,7 +102,10 @@ export async function resolveGhCliCredential(
     return { status: "structurally_invalid", path };
   }
 
-  const scanned = scanHostsFile(contents.toString("utf8"));
+  const scanned = scanHostsFile(
+    contents.toString("utf8"),
+    copilotGithubHost(dependencies.environment),
+  );
   if (scanned.status === "invalid") {
     return { status: "structurally_invalid", path };
   }
@@ -151,7 +154,11 @@ type Frame = {
  * rather than guessed at, because a misread structure could attribute one
  * host's token to another.
  */
-function scanHostsFile(text: string): ScannedHosts {
+function scanHostsFile(text: string, targetHost: string): ScannedHosts {
+  const isHostPath = (path: string[]): boolean =>
+    path.length === 1 && path[0] === targetHost;
+  const isTokenPath = (path: string[]): boolean =>
+    path.length === 2 && path[0] === targetHost && path[1] === TOKEN_KEY;
   const result: Extract<ScannedHosts, { status: "read" }> = {
     status: "read",
     host: "absent",
@@ -228,16 +235,6 @@ function scanHostsFile(text: string): ScannedHosts {
 
   if (pending) recordEmpty(pending);
   return result;
-}
-
-function isHostPath(path: string[]): boolean {
-  return path.length === 1 && path[0] === PUBLIC_GITHUB_HOST;
-}
-
-function isTokenPath(path: string[]): boolean {
-  return (
-    path.length === 2 && path[0] === PUBLIC_GITHUB_HOST && path[1] === TOKEN_KEY
-  );
 }
 
 /**

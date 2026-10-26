@@ -2,6 +2,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  copilotCacheContextId,
+  readCachedCopilotProvider,
+  writeCachedProviders,
+} from "../../src/cache.js";
 import { providerFetch } from "../../src/lib/http.js";
 import { fetchQuota } from "../../src/providers/copilot.js";
 
@@ -115,5 +120,65 @@ describe("Copilot on a GitHub Enterprise Cloud host", () => {
     const [url, init] = vi.mocked(providerFetch).mock.calls[0];
     expect(url).toBe("https://api.github.com/copilot_internal/user");
     expect(JSON.stringify(init)).not.toContain("gho_evil");
+  });
+
+  it("does not send a host-less apps.json token to an enterprise host", async () => {
+    vi.stubEnv("QUOTA_AXI_COPILOT_HOST", "acme.ghe.com");
+    writeApps({ legacy: { user: "pub", oauth_token: "gho_no_host" } });
+
+    await fetchQuota(options);
+
+    expect(providerFetch).not.toHaveBeenCalled();
+  });
+
+  it("still uses a host-less apps.json token for github.com", async () => {
+    writeApps({ legacy: { user: "pub", oauth_token: "gho_no_host" } });
+
+    await fetchQuota(options);
+
+    expect(vi.mocked(providerFetch).mock.calls[0][0]).toBe(
+      "https://api.github.com/copilot_internal/user",
+    );
+  });
+
+  describe("cached readings", () => {
+    async function cacheReadingFor(host: string | undefined) {
+      vi.stubEnv("QUOTA_AXI_COPILOT_HOST", host);
+      writeApps({
+        "github.com:a": { user: "pub", oauth_token: "gho_public" },
+        "acme.ghe.com:a": { user: "ent", oauth_token: "gho_ent" },
+      });
+      writeCachedProviders([await fetchQuota(options)]);
+    }
+
+    async function failingFetchUnder(host: string | undefined) {
+      vi.stubEnv("QUOTA_AXI_COPILOT_HOST", host);
+      vi.mocked(providerFetch).mockImplementation(
+        async () => new Response("boom", { status: 500 }),
+      );
+      return fetchQuota(options);
+    }
+
+    it("never serves a github.com reading as enterprise quota", async () => {
+      await cacheReadingFor(undefined);
+      const result = await failingFetchUnder("acme.ghe.com");
+      expect(result.state.status).not.toBe("stale");
+    });
+
+    it("never serves an enterprise reading as github.com quota", async () => {
+      await cacheReadingFor("acme.ghe.com");
+      const result = await failingFetchUnder(undefined);
+      expect(result.state.status).not.toBe("stale");
+    });
+
+    it("keys a cached reading to its own host", async () => {
+      await cacheReadingFor("acme.ghe.com");
+      expect(
+        readCachedCopilotProvider(copilotCacheContextId("acme.ghe.com")),
+      ).toBeDefined();
+      expect(
+        readCachedCopilotProvider(copilotCacheContextId("github.com")),
+      ).toBeUndefined();
+    });
   });
 });

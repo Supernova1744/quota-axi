@@ -580,7 +580,11 @@ function extractCredentialState(
   const selected =
     candidates.find(
       ({ host }) => host && matchesUserEndpoint(host, githubHost),
-    ) ?? (candidates.some(({ host }) => host) ? undefined : candidates[0]);
+    ) ??
+    // A token with no recorded host is only trusted for the public host.
+    (githubHost === "github.com" && !candidates.some(({ host }) => host)
+      ? candidates[0]
+      : undefined);
   if (selected) {
     return {
       status: "resolved",

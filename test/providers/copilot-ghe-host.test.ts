@@ -83,6 +83,15 @@ describe("Copilot on a GitHub Enterprise Cloud host", () => {
     expect(JSON.stringify(init)).toContain("gho_ent_apps");
   });
 
+  it("never sends a github.com apps.json token to the enterprise host", async () => {
+    vi.stubEnv("QUOTA_AXI_COPILOT_HOST", "acme.ghe.com");
+    writeApps({ "github.com:app": { user: "pub", oauth_token: "gho_public" } });
+
+    await fetchQuota(options);
+
+    expect(providerFetch).not.toHaveBeenCalled();
+  });
+
   it("keeps api.github.com and ignores enterprise tokens without the opt-in", async () => {
     writeHosts("acme.ghe.com:\n  oauth_token: gho_enterprise\n");
     await fetchQuota(options);

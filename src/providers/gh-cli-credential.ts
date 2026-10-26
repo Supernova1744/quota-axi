@@ -53,6 +53,7 @@ type GhCliCredentialDependencies = {
   platform: NodeJS.Platform;
   homeDirectory: () => string;
   readFile: (path: string, maxBytes: number) => Promise<Buffer>;
+  host?: string;
 };
 
 /**
@@ -105,7 +106,7 @@ export async function resolveGhCliCredential(
 
   const scanned = scanHostsFile(
     contents.toString("utf8"),
-    copilotGithubHost(dependencies.environment),
+    dependencies.host ?? copilotGithubHost(dependencies.environment),
   );
   if (scanned.status === "invalid") {
     return { status: "structurally_invalid", path };

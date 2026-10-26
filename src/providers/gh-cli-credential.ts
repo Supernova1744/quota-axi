@@ -10,7 +10,8 @@ import { usableLiteralSecret } from "../lib/secret.js";
  * Current Copilot sign-ins no longer write `github-copilot/apps.json`, and the
  * Copilot CLI accepts a `gh` OAuth token as a Copilot credential, so the `gh`
  * login is often the one a signed-in user actually has. quota-axi reads the
- * token `gh` itself would send to `github.com` and uses it only as the bearer of
+ * token `gh` itself would send to `github.com` (or to the one `*.ghe.com` host
+ * `QUOTA_AXI_COPILOT_HOST` opts into) and uses it only as the bearer of
  * GitHub's first-party Copilot user request - the host `gh` already sends it to.
  *
  * `gh` keeps that token in `hosts.yml` only when it stores credentials in plain
@@ -20,14 +21,14 @@ import { usableLiteralSecret } from "../lib/secret.js";
  * owns the final verdict (see README Provider notes).
  *
  * The reader is deliberately narrow rather than a YAML dependency. It walks the
- * block mappings `gh` writes and keeps exactly one value, the `github.com`
- * host's own `oauth_token`, which is the token `gh` resolves for that host
- * before it looks in the keyring. Enterprise hosts, per-user token copies, and
+ * block mappings `gh` writes and keeps exactly one value, the selected host's
+ * own `oauth_token` (`github.com` unless `QUOTA_AXI_COPILOT_HOST` names a
+ * `*.ghe.com` host), which is the token `gh` resolves for that host
+ * before it looks in the keyring. Other hosts, per-user token copies, and
  * every other key are parsed past and never kept.
  */
 export const GH_CLI_CREDENTIAL_SOURCE = "gh:hosts.yml";
 
-/** The only host whose token may reach the public Copilot user endpoint. */
 const TOKEN_KEY = "oauth_token";
 const HOSTS_FILE_LIMIT_BYTES = 64 * 1024;
 

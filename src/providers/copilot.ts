@@ -34,8 +34,8 @@ import {
   type GhCliCredentialResolution,
   resolveGhCliCredential,
 } from "./gh-cli-credential.js";
-
 import { copilotGithubHost } from "./copilot-host.js";
+
 import {
   COPILOT_CLI_KEYCHAIN_PROMPT_REQUIRED,
   COPILOT_CLI_SECURE_STORE_UNSUPPORTED,

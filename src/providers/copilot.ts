@@ -1,6 +1,10 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { readCachedProvider, retireCachedSlot } from "../cache.js";
+import {
+  copilotCacheContextId,
+  readCachedCopilotProvider,
+  retireCachedSlot,
+} from "../cache.js";
 import { readJsonFileResult, type JsonFileReadResult } from "../lib/fs.js";
 import { providerFetch } from "../lib/http.js";
 import {
@@ -252,7 +256,7 @@ export async function fetchQuota(
   // Native snapshots have no established revalidation contract across CLI
   // profile/account changes. Never serve them as stale, or substitute an older
   // legacy source snapshot for a present but unmeasurable native selection.
-  const cached = readCachedProvider("copilot");
+  const cached = readCachedCopilotProvider(copilotCacheContextId(host));
   const signOut = verdict.error === SIGN_IN_REQUIRED;
   const stale = staleUnlessSignOut(
     cached && cached.source !== "cli" && nativeSilent && !nativePromptRequired
@@ -296,6 +300,7 @@ function withPromptRemedy(result: ProviderQuota): ProviderQuota {
 export async function inspectAuth(
   options: ProviderOptions,
 ): Promise<AuthProviderReport> {
+  const host = copilotGithubHost();
   const sources: AuthSourceReport[] = [];
   for (const source of COPILOT_SOURCE_ORDER) {
     sources.push(
@@ -303,7 +308,7 @@ export async function inspectAuth(
         await resolveCopilotCredential(
           source,
           options,
-          copilotGithubHost(),
+          host,
           !options.allowKeychainPrompt,
         )
       ).report,

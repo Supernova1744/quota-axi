@@ -116,10 +116,14 @@ const CONTEXT_SCOPED_PROVIDERS: Partial<
   copilot: copilotReadingContextId,
 };
 
-function copilotReadingContextId(): string {
+export function copilotCacheContextId(host: string): string {
   return createHash("sha256")
-    .update(JSON.stringify(["copilot-host-v1", copilotGithubHost()]))
+    .update(JSON.stringify(["copilot-host-v1", host]))
     .digest("hex");
+}
+
+function copilotReadingContextId(): string {
+  return copilotCacheContextId(copilotGithubHost());
 }
 
 /**
@@ -594,6 +598,12 @@ export function readCachedMuseProvider(
   contextId: string,
 ): ProviderQuota | undefined {
   return readCachedProviderInContext("muse", contextId);
+}
+
+export function readCachedCopilotProvider(
+  contextId: string,
+): ProviderQuota | undefined {
+  return readCachedProviderInContext("copilot", contextId);
 }
 
 function readCachedProviderInContext(
